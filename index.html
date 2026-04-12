@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小見川冒険ガチャ & 大崎下島図鑑</title>
+    <style>
+        :root { --main-color: #ff7f50; --bg-color: #fdf5e6; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg-color); margin: 0; padding: 20px; text-align: center; color: #333; }
+        h1, h2 { color: var(--main-color); }
+        
+        .card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .gacha-btn { padding: 15px 30px; font-size: 18px; border-radius: 50px; border: none; cursor: pointer; transition: 0.3s; width: 100%; }
+        .locked { background: #ccc; color: #777; }
+        .unlocked { background: var(--main-color); color: white; animation: bounce 2s infinite; }
+        
+        @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-10px);} 60% {transform: translateY(-5px);} }
+
+        #encyclopedia { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+        .item { background: #eee; aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999; border: 1px solid #ddd; }
+        .acquired { background: #fff3e0; color: #e65100; border: 1px solid #ffb74d; font-weight: bold; }
+
+        /* 特典画面（複製防止用：動く背景と時計） */
+        #voucher { display: none; background: linear-gradient(45deg, #ff9a9e, #fad0c4, #ffecd2); background-size: 400% 400%; animation: gradientBG 10s ease infinite; padding: 30px; border: 5px dashed white; border-radius: 20px; margin-top: 20px; position: relative; overflow: hidden; }
+        @keyframes gradientBG { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
+        #live-clock { font-size: 24px; font-weight: bold; margin-top: 10px; color: #d32f2f; }
+    </style>
+</head>
+<body>
+
+    <h1>🍊 島の記憶ガチャ</h1>
+    
+    <div class="card">
+        <div id="status">位置情報を取得中...</div>
+        <div id="distance-info">-- km</div>
+    </div>
+
+    <div id="spot-info" class="card" style="display:none;">
+        <h2 id="spot-name"></h2>
+        <p id="spot-story"></p>
+        <button id="gachaButton" class="gacha-btn locked" disabled>ガチャを回す</button>
+    </div>
+
+    <div class="card">
+        <h3>📖 大崎下島 図鑑</h3>
+        <div id="visited-count">訪問数: 0 / 5</div>
+        <div id="encyclopedia"></div>
+    </div>
+
+    <div id="voucher" class="card">
+        <h2>🎉 コンプリート特典</h2>
+        <p>大崎下島みかん 1個引換券</p>
+        <div id="live-clock"></div>
+        <p style="font-size: 10px;">※スクリーンショット無効（時計が動いている画面を提示してください）</p>
+    </div>
+
+    <script>
+        // 設定データ
+        const locations = [
+            { id: 1, name: "さえき小見川店", lat: 35.84065, lon: 140.59935, story: "昔はマルヘイという名前のスーパーだった" },
+            { id: 2, name: "マツモトキヨシ小見川店", lat: 35.84042, lon: 140.59823, story: "意外と21:45までやってるぞ！" },
+            { id: 3, name: "ファミリーマート香取小見川店", lat: 35.85132, lon: 140.60941, story: "小見川はファミマの独壇場" },
+            { id: 4, name: "小見川支所", lat: 35.84709, lon: 140.60249, story: "パスポート申請は佐原じゃないとできない！悲しい！" },
+            { id: 5, name: "花藤", lat: 35.84156, lon: 140.59901, story: "コシアブラの天ぷらに出会えたら運が良い！" }
+        ];
+
+        const gachaItems = ["大崎レモン", "御手洗の街並み", "ハルさんの笑顔", "江戸時代の地図", "まめな食堂カレー", "瀬戸内の夕日", "とびしま海道の風", "レモンジュース", "島の猫", "黄金のみかん"];
+
+        // 状態管理
+        let state = JSON.parse(localStorage.getItem('runGachaState')) || {
+            visitedIds: [],
+            inventory: [],
+            isComplete: false
+        };
+
+        function saveState() {
+            localStorage.setItem('runGachaState', JSON.stringify(state));
+            renderEncyclopedia();
+        }
+
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function renderEncyclopedia() {
+            const container = document.getElementById('encyclopedia');
+            container.innerHTML = '';
+            gachaItems.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'item' + (state.inventory.includes(item) ? ' acquired' : '');
+                div.innerText = state.inventory.includes(item) ? item : '?';
+                container.appendChild(div);
+            });
+            document.getElementById('visited-count').innerText = `訪問数: ${state.visitedIds.length} / 5`;
+            if (state.visitedIds.length >= 5) document.getElementById('voucher').style.display = 'block';
+        }
+
+        function updatePosition() {
+            navigator.geolocation.watchPosition((position) => {
+                const { latitude, longitude } = position.coords;
+                let nearest = null;
+                let minSubDistance = Infinity;
+
+                locations.forEach(loc => {
+                    const dist = getDistance(latitude, longitude, loc.lat, loc.lon);
+                    if (dist < minSubDistance) {
+                        minSubDistance = dist;
+                        nearest = loc;
+                    }
+                });
+
+                document.getElementById('distance-info').innerText = `最寄りの地点まで: ${minSubDistance.toFixed(3)} km`;
+                
+                if (minSubDistance <= 0.03) { // 30m以内
+                    document.getElementById('spot-info').style.display = 'block';
+                    document.getElementById('spot-name').innerText = nearest.name;
+                    document.getElementById('spot-story').innerText = nearest.story;
+                    
+                    const btn = document.getElementById('gachaButton');
+                    if (!state.visitedIds.includes(nearest.id)) {
+                        btn.className = "gacha-btn unlocked";
+                        btn.disabled = false;
+                        btn.onclick = () => spinGacha(nearest.id);
+                    } else {
+                        btn.className = "gacha-btn locked";
+                        btn.innerText = "訪問済み";
+                        btn.disabled = true;
+                    }
+                } else {
+                    document.getElementById('spot-info').style.display = 'none';
+                }
+            }, null, { enableHighAccuracy: true });
+        }
+
+        function spinGacha(locId) {
+            const count = state.visitedIds.length + 1;
+            const spins = (count === 5) ? 10 : 1; // 5箇所目で10連
+            let newItems = [];
+            
+            for(let i=0; i<spins; i++) {
+                const item = gachaItems[Math.floor(Math.random() * gachaItems.length)];
+                if (!state.inventory.includes(item)) state.inventory.push(item);
+                newItems.push(item);
+            }
+
+            state.visitedIds.push(locId);
+            alert(`${spins}連ガチャ！ 獲得：${newItems.join(', ')}`);
+            saveState();
+        }
+
+        // 時計更新（複製防止用）
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString();
+        }, 1000);
+
+        renderEncyclopedia();
+        updatePosition();
+    </script>
+</body>
+</html>
