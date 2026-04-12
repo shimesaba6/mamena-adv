@@ -20,53 +20,31 @@
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-10px);} 60% {transform: translateY(-5px);} }
 
         #encyclopedia { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
-        .item { background: #eee; aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999; border: 1px solid #ddd; text-align: center; padding: 5px; }
-        .acquired { background: #fff3e0; color: #e65100; border: 1px solid #ffb74d; font-weight: bold; }
+        .item { background: #eee; aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999; border: 1px solid #ddd; text-align: center; padding: 5px; transition: 0.2s; }
+        .acquired { background: #fff3e0; color: #e65100; border: 1px solid #ffb74d; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .acquired:active { transform: scale(0.95); } /* タップした時の凹み効果 */
 
         #voucher { display: none; background: linear-gradient(45deg, #ff9a9e, #fad0c4, #ffecd2); background-size: 400% 400%; animation: gradientBG 10s ease infinite; padding: 30px; border: 5px dashed white; border-radius: 20px; margin-top: 20px; }
         @keyframes gradientBG { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
         #live-clock { font-size: 24px; font-weight: bold; margin-top: 10px; color: #d32f2f; }
         #map { height: 300px; width: 100%; border-radius: 10px; z-index: 1; margin-bottom: 15px; }
 
-        /* ======== ここから本格ガチャ演出のCSS ======== */
-        #gacha-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center;
-            flex-direction: column; color: white;
-        }
-        /* ドキドキする箱の揺れ */
+        /* ガチャ演出＆図鑑詳細モーダル */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; color: white; }
         .box-shake { font-size: 100px; animation: shake 0.5s infinite; margin-bottom: 20px; }
-        @keyframes shake {
-            0% { transform: translate(2px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-5deg); }
-            20% { transform: translate(-3px, 0px) rotate(5deg); }
-            30% { transform: translate(0px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(5deg); }
-            50% { transform: translate(-1px, 2px) rotate(-5deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(2px, 1px) rotate(-5deg); }
-            80% { transform: translate(-1px, -1px) rotate(5deg); }
-            90% { transform: translate(2px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-5deg); }
-        }
-        /* 画面のフラッシュ（レア確定時のような光） */
+        @keyframes shake { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 20% { transform: translate(-3px, 0px) rotate(5deg); } 40% { transform: translate(1px, -1px) rotate(-5deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 80% { transform: translate(2px, 1px) rotate(5deg); } }
         .flash-effect { animation: flash 0.6s ease-out; }
         @keyframes flash { 0% { background: rgba(255,255,255,1); } 100% { background: rgba(0,0,0,0.85); } }
         
-        /* 獲得アイテムが飛び出してくるアニメーション */
-        .result-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: 90%; max-height: 70vh; overflow-y: auto; }
-        .result-item {
-            font-size: 18px; font-weight: bold; margin: 5px; padding: 15px 20px;
-            background: linear-gradient(135deg, #ffd700, #ff8c00); /* レア感のあるゴールド */
-            border-radius: 10px; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-            box-shadow: 0 4px 15px rgba(255,215,0,0.5);
-            opacity: 0; transform: scale(0);
-            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        }
+        .result-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: 90%; max-height: 60vh; overflow-y: auto; }
+        .result-item { font-size: 18px; font-weight: bold; margin: 5px; padding: 15px 20px; background: linear-gradient(135deg, #ffd700, #ff8c00); border-radius: 10px; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); opacity: 0; transform: scale(0); animation: popIn 0.5s forwards; }
         @keyframes popIn { to { opacity: 1; transform: scale(1); } }
         
-        .close-btn { margin-top: 30px; padding: 15px 30px; background: white; color: #ff7f50; border: none; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        /* ============================================= */
+        .close-btn { margin-top: 20px; padding: 12px 30px; background: white; color: #ff7f50; border: none; border-radius: 30px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
+        /* 図鑑詳細用の特別スタイル */
+        .detail-card { background: white; color: #333; padding: 30px; border-radius: 20px; width: 80%; max-width: 350px; text-align: center; animation: popIn 0.3s forwards; }
+        .detail-emoji { font-size: 80px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -86,7 +64,7 @@
     </div>
 
     <div class="card">
-        <h3>📖 大崎下島 図鑑</h3>
+        <h3>📖 大崎下島 図鑑 (タップで詳細)</h3>
         <div id="visited-count">訪問数: 0 / 5</div>
         <div id="encyclopedia"></div>
     </div>
@@ -97,9 +75,19 @@
         <div id="live-clock"></div>
     </div>
 
-    <div id="gacha-modal">
+    <div id="gacha-modal" class="modal-overlay">
         <div id="gacha-content" style="display:flex; flex-direction:column; align-items:center;"></div>
     </div>
+
+    <div id="detail-modal" class="modal-overlay">
+        <div class="detail-card">
+            <div id="detail-image" class="detail-emoji"></div>
+            <h2 id="detail-title" style="color: #ff7f50; margin: 10px 0;"></h2>
+            <p id="detail-story" style="font-size: 14px; line-height: 1.6; color: #555; text-align: left;"></p>
+            <button class="close-btn" onclick="closeDetail()" style="background: #ff7f50; color: white;">閉じる</button>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
@@ -111,7 +99,20 @@
             { id: 5, name: "花藤", lat: 35.84156, lon: 140.59901, story: "コシアブラの天ぷらに出会えたら運が良い！" }
         ];
 
-        const gachaItems = ["大崎レモン", "御手洗の街並み", "ハルさんの笑顔", "江戸時代の地図", "まめな食堂カレー", "瀬戸内の夕日", "とびしま海道の風", "レモンジュース", "島の猫", "黄金のみかん"];
+        // アイテムデータ（写真の代わりに絵文字、小話を追加）
+        const gachaData = {
+            "大崎レモン": { img: "🍋", text: "太陽をたっぷり浴びた自慢のレモン。酸っぱさの中に島の人々の温かい甘みがあるよ。" },
+            "御手洗の街並み": { img: "🏮", text: "江戸時代にタイムスリップしたような風情ある港町。細い路地は冒険の匂いがする。" },
+            "ハルさんの笑顔": { img: "😊", text: "「よく頑張ったね」と微笑むハルさん。疲れた体と心を一瞬で癒やす魔法。" },
+            "江戸時代の地図": { img: "🗺️", text: "古の伊能忠敬も見たかもしれない、海を渡るための貴重な海図。" },
+            "まめな食堂カレー": { img: "🍛", text: "スパイスの香りが食欲をそそる。ランニングの後の最高のご褒美！" },
+            "瀬戸内の夕日": { img: "🌇", text: "海面をオレンジ色に染め上げる夕日。明日もきっと良い日になる。" },
+            "とびしま海道の風": { img: "🌬️", text: "自転車とランナーの背中を優しく押してくれる、潮騒混じりの心地よい風。" },
+            "レモンジュース": { img: "🍹", text: "乾いた喉に染み渡る！クエン酸パワーで疲労回復。" },
+            "島の猫": { img: "🐈", text: "路地裏で昼寝をしている島の主。近寄っても逃げないのんびり屋さん。" },
+            "黄金のみかん": { img: "🍊", text: "コンプリートの証！甘くてジューシーな、大崎下島からの贈り物。" }
+        };
+        const gachaItems = Object.keys(gachaData);
 
         let state = JSON.parse(localStorage.getItem('runGachaState')) || { visitedIds: [], inventory: [], isComplete: false };
 
@@ -138,46 +139,58 @@
             });
         }
 
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-
+        // 図鑑を描画し、タップ機能を追加
         function renderEncyclopedia() {
             const container = document.getElementById('encyclopedia');
             container.innerHTML = '';
             gachaItems.forEach(item => {
                 const div = document.createElement('div');
-                div.className = 'item' + (state.inventory.includes(item) ? ' acquired' : '');
-                div.innerText = state.inventory.includes(item) ? item : '?';
+                const isAcquired = state.inventory.includes(item);
+                
+                div.className = 'item' + (isAcquired ? ' acquired' : '');
+                div.innerText = isAcquired ? item : '?';
+                
+                // 獲得済みならタップで詳細を表示
+                if (isAcquired) {
+                    div.onclick = () => showDetail(item);
+                }
+                
                 container.appendChild(div);
             });
             document.getElementById('visited-count').innerText = `訪問数: ${state.visitedIds.length} / 5`;
             if (state.visitedIds.length >= 5) document.getElementById('voucher').style.display = 'block';
         }
 
+        // 図鑑詳細を表示する関数
+        function showDetail(itemName) {
+            const data = gachaData[itemName];
+            document.getElementById('detail-image').innerText = data.img; // ゆくゆくは <img src="..."> に変更可能
+            document.getElementById('detail-title').innerText = itemName;
+            document.getElementById('detail-story').innerText = data.text;
+            document.getElementById('detail-modal').style.display = 'flex';
+        }
+
+        function closeDetail() {
+            document.getElementById('detail-modal').style.display = 'none';
+        }
+
+        // --- GPS判定とガチャロジック（変更なし） ---
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
         function updatePosition() {
             navigator.geolocation.watchPosition((position) => {
                 const { latitude, longitude } = position.coords;
-                
-                if (userMarker) {
-                    userMarker.setLatLng([latitude, longitude]);
-                } else {
-                    userMarker = L.circleMarker([latitude, longitude], {color: 'red', radius: 8, fillOpacity: 0.8}).addTo(map).bindPopup("現在地");
-                }
+                if (userMarker) { userMarker.setLatLng([latitude, longitude]); } 
+                else { userMarker = L.circleMarker([latitude, longitude], {color: 'red', radius: 8, fillOpacity: 0.8}).addTo(map).bindPopup("現在地"); }
 
-                let nearest = null;
-                let minSubDistance = Infinity;
-
+                let nearest = null; let minSubDistance = Infinity;
                 locations.forEach(loc => {
                     const dist = getDistance(latitude, longitude, loc.lat, loc.lon);
-                    if (dist < minSubDistance) {
-                        minSubDistance = dist;
-                        nearest = loc;
-                    }
+                    if (dist < minSubDistance) { minSubDistance = dist; nearest = loc; }
                 });
 
                 document.getElementById('distance-info').innerText = `最寄り「${nearest.name}」まで: ${(minSubDistance * 1000).toFixed(0)} m`;
@@ -189,21 +202,14 @@
                     
                     const btn = document.getElementById('gachaButton');
                     if (!state.visitedIds.includes(nearest.id)) {
-                        btn.className = "gacha-btn unlocked";
-                        btn.disabled = false;
-                        btn.onclick = () => spinGacha(nearest.id);
+                        btn.className = "gacha-btn unlocked"; btn.disabled = false; btn.onclick = () => spinGacha(nearest.id);
                     } else {
-                        btn.className = "gacha-btn locked";
-                        btn.innerText = "訪問済み";
-                        btn.disabled = true;
+                        btn.className = "gacha-btn locked"; btn.innerText = "訪問済み"; btn.disabled = true;
                     }
-                } else {
-                    document.getElementById('spot-info').style.display = 'none';
-                }
+                } else { document.getElementById('spot-info').style.display = 'none'; }
             }, null, { enableHighAccuracy: true });
         }
 
-        // ======== 本格ガチャのロジック ========
         function spinGacha(locId) {
             const count = state.visitedIds.length + 1;
             const spins = (count === 5) ? 10 : 1;
@@ -216,42 +222,21 @@
             }
             state.visitedIds.push(locId);
 
-            // 演出開始
             const modal = document.getElementById('gacha-modal');
             const content = document.getElementById('gacha-content');
-            modal.style.display = 'flex';
-            modal.classList.remove('flash-effect');
+            modal.style.display = 'flex'; modal.classList.remove('flash-effect');
             
-            // 1. ドキドキのタメ（箱が揺れる）
-            content.innerHTML = `
-                <div class="box-shake">🎁</div>
-                <h3 style="margin-bottom:0;">思い出を取り出しています...</h3>
-            `;
+            content.innerHTML = `<div class="box-shake">🎁</div><h3 style="margin-bottom:0;">思い出を取り出しています...</h3>`;
 
-            // 2. 2秒後に箱が開いてフラッシュ＆結果表示
             setTimeout(() => {
                 modal.classList.add('flash-effect');
-                let resultsHTML = `
-                    <div style="font-size:60px; margin-bottom:10px;">✨</div>
-                    <div class="result-container">
-                `;
-                
-                // アイテムを1つずつ時間差で飛び出させる
-                newItems.forEach((item, index) => {
-                    resultsHTML += `<div class="result-item" style="animation-delay: ${index * 0.15}s">${item}</div>`;
-                });
-                
-                resultsHTML += `</div><button class="close-btn" onclick="closeGacha()" style="display:block; animation: popIn 0.5s ease forwards; animation-delay: ${spins * 0.15 + 0.5}s">図鑑にしまう</button>`;
+                let resultsHTML = `<div style="font-size:60px; margin-bottom:10px;">✨</div><div class="result-container">`;
+                newItems.forEach((item, index) => { resultsHTML += `<div class="result-item" style="animation-delay: ${index * 0.15}s">${item}</div>`; });
+                resultsHTML += `</div><button class="close-btn" onclick="document.getElementById('gacha-modal').style.display='none'" style="display:block; animation: popIn 0.5s ease forwards; animation-delay: ${spins * 0.15 + 0.5}s">図鑑にしまう</button>`;
                 content.innerHTML = resultsHTML;
-                
-                saveState(); // ここで裏側のデータを保存
+                saveState(); 
             }, 2000);
         }
-
-        function closeGacha() {
-            document.getElementById('gacha-modal').style.display = 'none';
-        }
-        // =======================================
 
         setInterval(() => {
             const now = new Date();
