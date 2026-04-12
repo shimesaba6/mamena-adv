@@ -23,13 +23,50 @@
         .item { background: #eee; aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999; border: 1px solid #ddd; text-align: center; padding: 5px; }
         .acquired { background: #fff3e0; color: #e65100; border: 1px solid #ffb74d; font-weight: bold; }
 
-        /* 特典画面 */
         #voucher { display: none; background: linear-gradient(45deg, #ff9a9e, #fad0c4, #ffecd2); background-size: 400% 400%; animation: gradientBG 10s ease infinite; padding: 30px; border: 5px dashed white; border-radius: 20px; margin-top: 20px; }
         @keyframes gradientBG { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
         #live-clock { font-size: 24px; font-weight: bold; margin-top: 10px; color: #d32f2f; }
-
-        /* 地図のスタイル設定 */
         #map { height: 300px; width: 100%; border-radius: 10px; z-index: 1; margin-bottom: 15px; }
+
+        /* ======== ここから本格ガチャ演出のCSS ======== */
+        #gacha-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center;
+            flex-direction: column; color: white;
+        }
+        /* ドキドキする箱の揺れ */
+        .box-shake { font-size: 100px; animation: shake 0.5s infinite; margin-bottom: 20px; }
+        @keyframes shake {
+            0% { transform: translate(2px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-5deg); }
+            20% { transform: translate(-3px, 0px) rotate(5deg); }
+            30% { transform: translate(0px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(5deg); }
+            50% { transform: translate(-1px, 2px) rotate(-5deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(2px, 1px) rotate(-5deg); }
+            80% { transform: translate(-1px, -1px) rotate(5deg); }
+            90% { transform: translate(2px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-5deg); }
+        }
+        /* 画面のフラッシュ（レア確定時のような光） */
+        .flash-effect { animation: flash 0.6s ease-out; }
+        @keyframes flash { 0% { background: rgba(255,255,255,1); } 100% { background: rgba(0,0,0,0.85); } }
+        
+        /* 獲得アイテムが飛び出してくるアニメーション */
+        .result-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: 90%; max-height: 70vh; overflow-y: auto; }
+        .result-item {
+            font-size: 18px; font-weight: bold; margin: 5px; padding: 15px 20px;
+            background: linear-gradient(135deg, #ffd700, #ff8c00); /* レア感のあるゴールド */
+            border-radius: 10px; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 15px rgba(255,215,0,0.5);
+            opacity: 0; transform: scale(0);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popIn { to { opacity: 1; transform: scale(1); } }
+        
+        .close-btn { margin-top: 30px; padding: 15px 30px; background: white; color: #ff7f50; border: none; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        /* ============================================= */
     </style>
 </head>
 <body>
@@ -60,6 +97,9 @@
         <div id="live-clock"></div>
     </div>
 
+    <div id="gacha-modal">
+        <div id="gacha-content" style="display:flex; flex-direction:column; align-items:center;"></div>
+    </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
@@ -75,13 +115,9 @@
 
         let state = JSON.parse(localStorage.getItem('runGachaState')) || { visitedIds: [], inventory: [], isComplete: false };
 
-        // 地図の初期化（小見川の中心座標付近に設定）
         const map = L.map('map').setView([35.844, 140.600], 14);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
 
-        // 目的地のピンを地図に配置
         const markers = {};
         locations.forEach(loc => {
             const isVisited = state.visitedIds.includes(loc.id);
@@ -95,7 +131,6 @@
         function saveState() {
             localStorage.setItem('runGachaState', JSON.stringify(state));
             renderEncyclopedia();
-            // 地図のピンの状態も更新
             locations.forEach(loc => {
                 if(state.visitedIds.includes(loc.id)) {
                     markers[loc.id].getPopup().setContent(`<b>${loc.name}</b><br>✅ 訪問済`);
@@ -128,7 +163,6 @@
             navigator.geolocation.watchPosition((position) => {
                 const { latitude, longitude } = position.coords;
                 
-                // 現在地の赤丸を地図上に表示・更新
                 if (userMarker) {
                     userMarker.setLatLng([latitude, longitude]);
                 } else {
@@ -169,6 +203,7 @@
             }, null, { enableHighAccuracy: true });
         }
 
+        // ======== 本格ガチャのロジック ========
         function spinGacha(locId) {
             const count = state.visitedIds.length + 1;
             const spins = (count === 5) ? 10 : 1;
@@ -179,11 +214,44 @@
                 if (!state.inventory.includes(item)) state.inventory.push(item);
                 newItems.push(item);
             }
-
             state.visitedIds.push(locId);
-            alert(`${spins}連ガチャ！ 獲得：${newItems.join(', ')}`);
-            saveState();
+
+            // 演出開始
+            const modal = document.getElementById('gacha-modal');
+            const content = document.getElementById('gacha-content');
+            modal.style.display = 'flex';
+            modal.classList.remove('flash-effect');
+            
+            // 1. ドキドキのタメ（箱が揺れる）
+            content.innerHTML = `
+                <div class="box-shake">🎁</div>
+                <h3 style="margin-bottom:0;">思い出を取り出しています...</h3>
+            `;
+
+            // 2. 2秒後に箱が開いてフラッシュ＆結果表示
+            setTimeout(() => {
+                modal.classList.add('flash-effect');
+                let resultsHTML = `
+                    <div style="font-size:60px; margin-bottom:10px;">✨</div>
+                    <div class="result-container">
+                `;
+                
+                // アイテムを1つずつ時間差で飛び出させる
+                newItems.forEach((item, index) => {
+                    resultsHTML += `<div class="result-item" style="animation-delay: ${index * 0.15}s">${item}</div>`;
+                });
+                
+                resultsHTML += `</div><button class="close-btn" onclick="closeGacha()" style="display:block; animation: popIn 0.5s ease forwards; animation-delay: ${spins * 0.15 + 0.5}s">図鑑にしまう</button>`;
+                content.innerHTML = resultsHTML;
+                
+                saveState(); // ここで裏側のデータを保存
+            }, 2000);
         }
+
+        function closeGacha() {
+            document.getElementById('gacha-modal').style.display = 'none';
+        }
+        // =======================================
 
         setInterval(() => {
             const now = new Date();
