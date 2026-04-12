@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小見川冒険ガチャ & 大崎下島図鑑</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <style>
         :root { --main-color: #ff7f50; --bg-color: #fdf5e6; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg-color); margin: 0; padding: 20px; text-align: center; color: #333; }
@@ -17,13 +20,16 @@
         @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-10px);} 60% {transform: translateY(-5px);} }
 
         #encyclopedia { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
-        .item { background: #eee; aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999; border: 1px solid #ddd; }
+        .item { background: #eee; aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999; border: 1px solid #ddd; text-align: center; padding: 5px; }
         .acquired { background: #fff3e0; color: #e65100; border: 1px solid #ffb74d; font-weight: bold; }
 
-        /* 特典画面（複製防止用：動く背景と時計） */
-        #voucher { display: none; background: linear-gradient(45deg, #ff9a9e, #fad0c4, #ffecd2); background-size: 400% 400%; animation: gradientBG 10s ease infinite; padding: 30px; border: 5px dashed white; border-radius: 20px; margin-top: 20px; position: relative; overflow: hidden; }
+        /* 特典画面 */
+        #voucher { display: none; background: linear-gradient(45deg, #ff9a9e, #fad0c4, #ffecd2); background-size: 400% 400%; animation: gradientBG 10s ease infinite; padding: 30px; border: 5px dashed white; border-radius: 20px; margin-top: 20px; }
         @keyframes gradientBG { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
         #live-clock { font-size: 24px; font-weight: bold; margin-top: 10px; color: #d32f2f; }
+
+        /* 地図のスタイル設定 */
+        #map { height: 300px; width: 100%; border-radius: 10px; z-index: 1; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -31,8 +37,9 @@
     <h1>🍊 島の記憶ガチャ</h1>
     
     <div class="card">
+        <div id="map"></div>
         <div id="status">位置情報を取得中...</div>
-        <div id="distance-info">-- km</div>
+        <div id="distance-info" style="font-weight: bold; margin-top: 10px;">-- km</div>
     </div>
 
     <div id="spot-info" class="card" style="display:none;">
@@ -51,11 +58,11 @@
         <h2>🎉 コンプリート特典</h2>
         <p>大崎下島みかん 1個引換券</p>
         <div id="live-clock"></div>
-        <p style="font-size: 10px;">※スクリーンショット無効（時計が動いている画面を提示してください）</p>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <script>
-        // 設定データ
         const locations = [
             { id: 1, name: "さえき小見川店", lat: 35.84065, lon: 140.59935, story: "昔はマルヘイという名前のスーパーだった" },
             { id: 2, name: "マツモトキヨシ小見川店", lat: 35.84042, lon: 140.59823, story: "意外と21:45までやってるぞ！" },
@@ -66,16 +73,34 @@
 
         const gachaItems = ["大崎レモン", "御手洗の街並み", "ハルさんの笑顔", "江戸時代の地図", "まめな食堂カレー", "瀬戸内の夕日", "とびしま海道の風", "レモンジュース", "島の猫", "黄金のみかん"];
 
-        // 状態管理
-        let state = JSON.parse(localStorage.getItem('runGachaState')) || {
-            visitedIds: [],
-            inventory: [],
-            isComplete: false
-        };
+        let state = JSON.parse(localStorage.getItem('runGachaState')) || { visitedIds: [], inventory: [], isComplete: false };
+
+        // 地図の初期化（小見川の中心座標付近に設定）
+        const map = L.map('map').setView([35.844, 140.600], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // 目的地のピンを地図に配置
+        const markers = {};
+        locations.forEach(loc => {
+            const isVisited = state.visitedIds.includes(loc.id);
+            const marker = L.marker([loc.lat, loc.lon]).addTo(map);
+            marker.bindPopup(`<b>${loc.name}</b><br>${isVisited ? '✅ 訪問済' : '📍 未到達'}`);
+            markers[loc.id] = marker;
+        });
+
+        let userMarker = null;
 
         function saveState() {
             localStorage.setItem('runGachaState', JSON.stringify(state));
             renderEncyclopedia();
+            // 地図のピンの状態も更新
+            locations.forEach(loc => {
+                if(state.visitedIds.includes(loc.id)) {
+                    markers[loc.id].getPopup().setContent(`<b>${loc.name}</b><br>✅ 訪問済`);
+                }
+            });
         }
 
         function getDistance(lat1, lon1, lat2, lon2) {
@@ -102,6 +127,14 @@
         function updatePosition() {
             navigator.geolocation.watchPosition((position) => {
                 const { latitude, longitude } = position.coords;
+                
+                // 現在地の赤丸を地図上に表示・更新
+                if (userMarker) {
+                    userMarker.setLatLng([latitude, longitude]);
+                } else {
+                    userMarker = L.circleMarker([latitude, longitude], {color: 'red', radius: 8, fillOpacity: 0.8}).addTo(map).bindPopup("現在地");
+                }
+
                 let nearest = null;
                 let minSubDistance = Infinity;
 
@@ -113,9 +146,9 @@
                     }
                 });
 
-                document.getElementById('distance-info').innerText = `最寄りの地点まで: ${minSubDistance.toFixed(3)} km`;
+                document.getElementById('distance-info').innerText = `最寄り「${nearest.name}」まで: ${(minSubDistance * 1000).toFixed(0)} m`;
                 
-                if (minSubDistance <= 0.03) { // 30m以内
+                if (minSubDistance <= 0.03) { 
                     document.getElementById('spot-info').style.display = 'block';
                     document.getElementById('spot-name').innerText = nearest.name;
                     document.getElementById('spot-story').innerText = nearest.story;
@@ -138,7 +171,7 @@
 
         function spinGacha(locId) {
             const count = state.visitedIds.length + 1;
-            const spins = (count === 5) ? 10 : 1; // 5箇所目で10連
+            const spins = (count === 5) ? 10 : 1;
             let newItems = [];
             
             for(let i=0; i<spins; i++) {
@@ -152,7 +185,6 @@
             saveState();
         }
 
-        // 時計更新（複製防止用）
         setInterval(() => {
             const now = new Date();
             document.getElementById('live-clock').innerText = now.toLocaleTimeString();
