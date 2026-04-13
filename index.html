@@ -3,91 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>大崎下島 Memory Gacha</title>
+    <title>大崎下島 Memory Gacha V3</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <style>
         :root {
-            --sea-blue: #0077be;
+            --sea-deep: #005a9c;
+            --sea-light: #e0f2fe;
+            --mikan-vivid: #ff8c00;
+            --mikan-soft: #ffa500;
             --cloud-white: #ffffff;
-            --mikan-orange: #ff8c00;
-            --sand-beige: #fdf5e6;
+            --text-dark: #2c3e50;
         }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--sand-beige); margin: 0; overflow-x: hidden; color: #333; }
-        
-        /* メニュー切り替え用 */
-        .page { display: none; padding: 20px; animation: fadeIn 0.5s; }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background: linear-gradient(180deg, var(--sea-light) 0%, #f0f9ff 100%);
+            margin: 0;
+            color: var(--text-dark);
+            min-height: 100vh;
+        }
+
+        /* ページ管理 */
+        .page { display: none; padding: 20px 15px; animation: fadeIn 0.4s ease-out; }
         .active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        h1 { color: var(--sea-blue); text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
-        .card { background: var(--cloud-white); border-radius: 20px; padding: 15px; margin-bottom: 20px; border: 2px solid var(--sea-blue); }
+        /* ヘッダー・カード */
+        h1 { font-size: 1.5rem; color: var(--sea-deep); margin-bottom: 20px; font-weight: 700; }
+        .card {
+            background: var(--cloud-white);
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px rgba(0, 90, 156, 0.1);
+            border: 1px solid rgba(0, 90, 156, 0.05);
+        }
 
-        /* マップのピン名表示 */
-        .leaflet-tooltip-own { background: var(--sea-blue); color: white; border: none; font-weight: bold; border-radius: 5px; }
+        /* 地図 */
+        #map { height: 350px; width: 100%; border-radius: 20px; border: 2px solid var(--sea-deep); }
 
         /* ガチャボタン */
-        .gacha-btn { padding: 15px; border-radius: 50px; border: none; cursor: pointer; width: 100%; font-size: 18px; font-weight: bold; transition: 0.3s; }
-        .unlocked { background: var(--mikan-orange); color: white; box-shadow: 0 4px 15px rgba(255,140,0,0.4); }
-        .locked { background: #ccc; color: #777; }
+        .gacha-btn {
+            padding: 18px; border-radius: 50px; border: none; cursor: pointer;
+            width: 100%; font-size: 1.1rem; font-weight: 700; transition: 0.3s;
+            background: linear-gradient(135deg, var(--mikan-soft), var(--mikan-vivid));
+            color: white; box-shadow: 0 6px 20px rgba(255, 140, 0, 0.3);
+        }
+        .locked { background: #d1d5db; color: #9ca3af; box-shadow: none; cursor: not-allowed; }
 
-        /* 🍊 メニューボタン */
+        /* ミカンメニューボタン */
         #menu-trigger {
-            position: fixed; bottom: 20px; right: 20px; width: 70px; height: 70px;
-            background: var(--mikan-orange); border-radius: 50%; display: flex; align-items: center;
-            justify-content: center; font-size: 35px; cursor: pointer; z-index: 10000;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 3px solid white;
+            position: fixed; bottom: 30px; right: 30px; width: 64px; height: 64px;
+            background: var(--mikan-vivid); border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 30px;
+            z-index: 10000; box-shadow: 0 8px 30px rgba(255, 140, 0, 0.4);
+            border: 4px solid white; cursor: pointer;
         }
 
-        /* 図鑑グリッド */
-        #encyclopedia { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        .item { background: #eee; aspect-ratio: 1; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999; border: 1px dashed var(--sea-blue); }
-        .acquired { background: var(--cloud-white); color: var(--mikan-orange); border: 2px solid var(--mikan-orange); font-weight: bold; }
+        /* 図鑑 */
+        #encyclopedia { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .item {
+            aspect-ratio: 1; border-radius: 16px; background: #f3f4f6;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 0.7rem; color: #9ca3af; border: 2px dashed #d1d5db; overflow: hidden;
+        }
+        .acquired {
+            background: white; color: var(--sea-deep); border: 2px solid var(--mikan-vivid);
+            font-weight: 700; box-shadow: 0 4px 12px rgba(0,0,0,0.05); cursor: pointer;
+        }
+        .item img { width: 100%; height: 100%; object-fit: cover; }
 
-        /* ガチャモーダルは前回同様 */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 20000; justify-content: center; align-items: center; flex-direction: column; color: white; }
-        .detail-card { background: white; color: #333; padding: 25px; border-radius: 20px; width: 85%; max-width: 350px; text-align: center; }
-        #map { height: 400px; width: 100%; border-radius: 15px; border: 2px solid var(--sea-blue); }
+        /* モーダル */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); z-index: 20000; justify-content: center; align-items: center;
+            padding: 20px;
+        }
+        .detail-card {
+            background: white; border-radius: 30px; width: 100%; max-width: 400px;
+            overflow: hidden; text-align: center; position: relative;
+        }
+        .detail-img-box { width: 100%; aspect-ratio: 16/9; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+        .detail-content { padding: 25px; }
     </style>
 </head>
 <body>
 
     <div id="menu-trigger" onclick="toggleMenu()">🍊</div>
 
-    <div id="page-menu" class="page">
-        <h1>メニュー</h1>
-        <div class="card" onclick="showPage('map')">🗺️ 冒険マップへ</div>
-        <div class="card" onclick="showPage('collection')">📖 図鑑を見る</div>
-        <div class="card" onclick="alert('準備中...')">📸 写真を投稿する</div>
-    </div>
-
     <div id="page-map" class="page active">
         <h1>冒険の地図</h1>
         <div id="map"></div>
-        <div id="status-card" class="card" style="margin-top:15px;">
-            <div id="distance-info">位置情報を取得中...</div>
-            <div id="spot-area" style="display:none; margin-top:10px;">
-                <h2 id="spot-name" style="margin:5px 0; color:var(--mikan-orange);"></h2>
-                <p id="spot-story" style="font-size:14px;"></p>
+        <div class="card" style="margin-top: 20px;">
+            <div id="distance-info">現在地を確認中...</div>
+            <div id="spot-area" style="display:none; margin-top:15px;">
+                <h2 id="spot-name" style="color: var(--mikan-vivid); margin-bottom: 8px;"></h2>
+                <p id="spot-story" style="font-size: 0.9rem; margin-bottom: 20px;"></p>
                 <button id="gachaButton" class="gacha-btn">ガチャを回す</button>
             </div>
         </div>
     </div>
 
     <div id="page-collection" class="page">
-        <h1>大崎下島の記憶</h1>
+        <h1>島の記憶図鑑</h1>
         <div class="card">
-            <div id="visited-count">訪問数: 0 / 5</div>
+            <p style="font-size: 0.8rem; color: var(--sea-deep);">タップして詳細を見る</p>
             <div id="encyclopedia"></div>
         </div>
     </div>
 
-    <div id="gacha-modal" class="modal-overlay">
-        <div id="gacha-content" style="display:flex; flex-direction:column; align-items:center;"></div>
+    <div id="detail-modal" class="modal-overlay" onclick="closeDetail()">
+        <div class="detail-card" onclick="event.stopPropagation()">
+            <div id="detail-img-box" class="detail-img-box"></div>
+            <div class="detail-content">
+                <h2 id="detail-title" style="margin-bottom: 10px; color: var(--sea-deep);"></h2>
+                <p id="detail-text" style="font-size: 0.9rem; line-height: 1.6;"></p>
+                <button class="gacha-btn" style="margin-top: 20px;" onclick="closeDetail()">閉じる</button>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 地点データ
+        // --- データ設定 ---
+        const gachaData = {
+            "大崎レモン": { emoji: "🍋", url: "", text: "太陽をたっぷり浴びた自慢のレモン。酸っぱさの中に島の人々の温かい甘みがあるよ。" },
+            "御手洗の街並み": { emoji: "🏮", url: "", text: "江戸時代にタイムスリップしたような風情ある港町。細い路地は冒険の匂いがする。" },
+            "ハルさんの笑顔": { emoji: "😊", url: "", text: "「よく頑張ったね」と微笑むハルさん。疲れた体と心を一瞬で癒やす魔法。" },
+            "江戸時代の地図": { emoji: "🗺️", url: "", text: "古の伊能忠敬も見たかもしれない、海を渡るための貴重な海図。" },
+            "まめな食堂カレー": { emoji: "🍛", url: "", text: "スパイスの香りが食欲をそそる。ランニングの後の最高のご褒美！" }
+        };
+        const allItems = Object.keys(gachaData);
+
         const locations = [
             { id: 1, name: "さえき小見川店", lat: 35.84065, lon: 140.59935, story: "昔はマルヘイという名前のスーパーだった" },
             { id: 2, name: "マツモトキヨシ小見川店", lat: 35.84042, lon: 140.59823, story: "意外と21:45までやってるぞ！" },
@@ -96,134 +145,96 @@
             { id: 5, name: "花藤", lat: 35.84156, lon: 140.59901, story: "コシアブラの天ぷらに出会えたら運が良い！" }
         ];
 
-        const allItems = ["大崎レモン", "御手洗の街並み", "ハルさんの笑顔", "江戸時代の地図", "まめな食堂カレー", "瀬戸内の夕日", "とびしま海道の風", "レモンジュース", "島の猫", "黄金のみかん"];
+        let state = JSON.parse(localStorage.getItem('runGachaV3')) || { visited: [], inventory: [] };
 
-        let state = JSON.parse(localStorage.getItem('runGachaState')) || { visitedIds: [], inventory: [] };
-
-        // ページ切り替え
-        function showPage(pageId) {
+        // --- UI管理 ---
+        function toggleMenu() {
+            const isMap = document.getElementById('page-map').classList.contains('active');
+            if(isMap) showPage('collection'); else showPage('map');
+        }
+        function showPage(id) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById('page-' + pageId).classList.add('active');
-            if(pageId === 'map') setTimeout(() => map.invalidateSize(), 100);
-        }
-        function toggleMenu() { 
-            const menu = document.getElementById('page-menu');
-            menu.classList.contains('active') ? showPage('map') : showPage('menu');
+            document.getElementById('page-' + id).classList.add('active');
+            if(id === 'map') setTimeout(() => map.invalidateSize(), 200);
         }
 
-        // マップ初期化
-        const map = L.map('map').setView([35.844, 140.600], 14);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        locations.forEach(loc => {
-            L.marker([loc.lat, loc.lon]).addTo(map)
-             .bindTooltip(loc.name, {permanent: true, direction: 'top', className: 'leaflet-tooltip-own'});
-        });
-
-        let userMarker = null;
-
-        function updatePosition() {
-            navigator.geolocation.watchPosition((position) => {
-                const { latitude, longitude } = position.coords;
-                if (!userMarker) userMarker = L.circleMarker([latitude, longitude], {color: 'red', radius: 8}).addTo(map);
-                userMarker.setLatLng([latitude, longitude]);
-
-                let nearest = null;
-                let minDist = Infinity;
-                locations.forEach(loc => {
-                    const d = getDist(latitude, longitude, loc.lat, loc.lon);
-                    if(d < minDist) { minDist = d; nearest = loc; }
-                });
-
-                document.getElementById('distance-info').innerText = `最寄り: ${nearest.name} まで ${(minDist*1000).toFixed(0)}m`;
-                
-                if(minDist <= 0.03) {
-                    document.getElementById('spot-area').style.display = 'block';
-                    document.getElementById('spot-name').innerText = nearest.name;
-                    document.getElementById('spot-story').innerText = nearest.story;
-                    const btn = document.getElementById('gachaButton');
-                    if(state.visitedIds.includes(nearest.id)) {
-                        btn.className = "gacha-btn locked"; btn.innerText = "訪問済み"; btn.disabled = true;
-                    } else {
-                        btn.className = "gacha-btn unlocked"; btn.innerText = "ガチャを回す"; btn.disabled = false;
-                        btn.onclick = () => spinGacha(nearest.id);
-                    }
-                } else {
-                    document.getElementById('spot-area').style.display = 'none';
-                }
-            }, null, {enableHighAccuracy: true});
-        }
-
-        // ガチャロジック（被りなし）
-        function spinGacha(locId) {
-            // まだ持っていないアイテムを抽出
-            const remainingItems = allItems.filter(item => !state.inventory.includes(item));
-            
-            if (remainingItems.length === 0) {
-                alert("すべての記憶を集めました！コンプリートです！");
-                return;
-            }
-
-            const spins = (state.visitedIds.length + 1 === 5) ? Math.min(10, remainingItems.length) : 1;
-            let results = [];
-            
-            // 被りなしで抽選
-            for(let i=0; i<spins; i++) {
-                if(remainingItems.length > 0) {
-                    const idx = Math.floor(Math.random() * remainingItems.length);
-                    const picked = remainingItems.splice(idx, 1)[0];
-                    state.inventory.push(picked);
-                    results.push(picked);
-                }
-            }
-            state.visitedIds.push(locId);
-            showGachaEffect(results);
-            save();
-        }
-
-        function showGachaEffect(results) {
-            const modal = document.getElementById('gacha-modal');
-            modal.style.display = 'flex';
-            const content = document.getElementById('gacha-content');
-            content.innerHTML = `<div style="font-size:80px; animation:shake 0.5s infinite;">🎁</div><h3>思い出を探索中...</h3>`;
-            
-            setTimeout(() => {
-                let html = `<h2>✨ 獲得！ ✨</h2><div style="display:flex; flex-wrap:wrap; justify-content:center;">`;
-                results.forEach(item => {
-                    html += `<div style="background:var(--mikan-orange); padding:10px; margin:5px; border-radius:10px;">${item}</div>`;
-                });
-                html += `</div><button class="gacha-btn unlocked" style="margin-top:20px;" onclick="closeGacha()">図鑑にしまう</button>`;
-                content.innerHTML = html;
-            }, 2000);
-        }
-
-        function closeGacha() { document.getElementById('gacha-modal').style.display = 'none'; }
-        function save() { 
-            localStorage.setItem('runGachaState', JSON.stringify(state)); 
-            renderEncyclopedia(); 
-        }
+        // --- 図鑑表示 ---
         function renderEncyclopedia() {
             const container = document.getElementById('encyclopedia');
             container.innerHTML = '';
-            allItems.forEach(item => {
+            allItems.forEach(name => {
+                const item = gachaData[name];
+                const has = state.inventory.includes(name);
                 const div = document.createElement('div');
-                const has = state.inventory.includes(item);
                 div.className = 'item' + (has ? ' acquired' : '');
-                div.innerText = has ? item : '?';
+                
+                if(has) {
+                    if(item.url) {
+                        div.innerHTML = `<img src="${item.url}" alt="${name}">`;
+                    } else {
+                        div.innerHTML = `<span style="font-size:24px">${item.emoji}</span><br>${name}`;
+                    }
+                    div.onclick = () => openDetail(name);
+                } else {
+                    div.innerText = '？';
+                }
                 container.appendChild(div);
             });
-            document.getElementById('visited-count').innerText = `訪問数: ${state.visitedIds.length} / 5`;
         }
-        function getDist(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2-lat1)*Math.PI/180;
-            const dLon = (lon2-lon1)*Math.PI/180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        function openDetail(name) {
+            const item = gachaData[name];
+            document.getElementById('detail-title').innerText = name;
+            document.getElementById('detail-text').innerText = item.text;
+            const imgBox = document.getElementById('detail-img-box');
+            imgBox.innerHTML = item.url ? `<img src="${item.url}" style="width:100%;height:100%;object-fit:cover;">` : item.emoji;
+            document.getElementById('detail-modal').style.display = 'flex';
+        }
+        function closeDetail() { document.getElementById('detail-modal').style.display = 'none'; }
+
+        // --- ロジック (GPS/ガチャ) ---
+        const map = L.map('map').setView([35.844, 140.600], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        locations.forEach(l => L.marker([l.lat, l.lon]).addTo(map).bindTooltip(l.name, {permanent:true}));
+
+        function update() {
+            navigator.geolocation.watchPosition(pos => {
+                const {latitude:lat, longitude:lon} = pos.coords;
+                let near = null, minDist = 999;
+                locations.forEach(l => {
+                    const d = Math.sqrt((l.lat-lat)**2 + (l.lon-lon)**2); // 簡易計算
+                    if(d < minDist) { minDist = d; near = l; }
+                });
+                document.getElementById('distance-info').innerText = `最寄り: ${near.name} まで ${(minDist*111000).toFixed(0)}m`;
+                if(minDist < 0.0003) { // 約30m
+                    document.getElementById('spot-area').style.display = 'block';
+                    document.getElementById('spot-name').innerText = near.name;
+                    document.getElementById('spot-story').innerText = near.story;
+                    const btn = document.getElementById('gachaButton');
+                    if(state.visited.includes(near.id)) {
+                        btn.className = "gacha-btn locked"; btn.innerText = "訪問済み"; btn.disabled = true;
+                    } else {
+                        btn.className = "gacha-btn"; btn.innerText = "ガチャを回す"; btn.disabled = false;
+                        btn.onclick = () => spin(near.id);
+                    }
+                } else { document.getElementById('spot-area').style.display = 'none'; }
+            }, null, {enableHighAccuracy:true});
+        }
+
+        function spin(id) {
+            const pool = allItems.filter(i => !state.inventory.includes(i));
+            if(pool.length > 0) {
+                const pick = pool[Math.floor(Math.random()*pool.length)];
+                state.inventory.push(pick);
+                state.visited.push(id);
+                localStorage.setItem('runGachaV3', JSON.stringify(state));
+                alert(`✨ 獲得: ${pick}`);
+                renderEncyclopedia();
+            }
         }
 
         renderEncyclopedia();
-        updatePosition();
+        update();
     </script>
 </body>
 </html>
